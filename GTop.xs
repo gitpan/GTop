@@ -35,7 +35,7 @@ XS(XS_GTop_field)
     void *s = (void *)SvIV((SV*)SvRV(ST(0)));
     u_int64_t **ptr = (u_int64_t **)any_ptr_deref(s);
 
-    ST(0) = newSViv((IV)*ptr);
+    ST(0) = sv_2mortal(newSViv((IV)*ptr));
 
     XSRETURN(1); 
 }
