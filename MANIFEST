@@ -5,3 +5,6 @@ typemap
 README
 MANIFEST
 Changes
+examples/mountlist
+examples/procmap
+

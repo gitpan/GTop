@@ -1,3 +1,17 @@
+0.05 - October 4, 1999
+
+malloc/free glibtop_* objects instead of using a glibtop_union
+
+0.04 - October 4, 1999
+
+added a few examples/
+
+added mountlist, mountentry, proc_map, map_entry interfaces
+
+0.03 - October 3, 1999
+
+added swap, proc_segment, netload, mountlist and fsusage interfaces
+
 0.02 - August 5, 1999
 
 mortalize return value of XS_GTop_field

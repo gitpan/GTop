@@ -6,7 +6,7 @@ use strict;
 
 {
     no strict;
-    $VERSION = '0.02';
+    $VERSION = '0.05';
 
     *dl_load_flags = DynaLoader->can('dl_load_flags');
     do {

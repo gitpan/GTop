@@ -8,6 +8,18 @@ my %interface = (
     'proc_mem'  => [qw(flags size vsize resident share rss rss_rlim)],
     'proc_time' => [qw(flags start_time rtime utime stime cutime cstime
 		       timeout it_real_value frequency)],
+    'proc_map' => [qw(flags number total size)],
+    'map_entry' => [],
+    'swap' => [qw(flags total used free pagein pageout)],
+    'proc_segment' => [qw(flags text_rss shlib_rss data_rss stack_rss 
+			  dirty_size start_code end_code start_stack)],
+    'netload' => [qw(flags if_flags mtu subnet address packets_in 
+		     packets_out packets_total bytes_in bytes_out 
+		     bytes_total errors_in errors_out errors_total
+		     collisions)],
+    'mountlist' => [qw(flags number total size)],
+    'mountentry' => [],
+    'fsusage' => [qw(flags blocks bfree bavail files ffree)],
 );
 
 open TYPEMAP, ">typemap.gtop" or die $!;
@@ -48,6 +60,9 @@ Perl interface to libgtop:
 
 EOF
 
+my %constructors = map {$_,1} qw(mountlist proc_map mountentry map_entry);
+my %notunion = map {$_,1} qw(mountentry map_entry);
+
 for my $if (sort keys %interface) {
     local *FH;
     (my $leaf = $if) =~ s/_(.)/uc $1/e;
@@ -61,51 +76,75 @@ for my $if (sort keys %interface) {
     print BOOTINC "typedef glibtop_$if * $typedef;\n";
     print BOOTINC qq(\#include "$if.boot"\n);
 
-    my(@pid) = ($if =~ /^proc_/) ? 
-      (', pid', 'pid_t pid', '($pid)', '($$)') : ('','','','()');
-    print XS <<EOF;
+    my(@args) = ('','','','()');
+
+    if ($if =~ /^proc_/)  { 
+	@args = (', pid', 'pid_t pid', '($pid)', '($$)');
+    }
+    elsif ($if =~ /^netload/) {
+	@args = (', interface', 'char * interface', 
+		'($interface)', '(\'eth0\')');
+    }
+    elsif ($if =~ /^mountlist/) {
+	@args = (', all_fs', 'int all_fs', '($all_fs)', '(1)');
+    }
+    elsif ($if =~ /^fsusage/) {
+	@args = (', disk', 'char *disk', '($disk)', '(\'/\')');
+    }
+
+    print XS <<EOF unless $constructors{$if};
 
 $class
-$if(gtop$pid[0])
+$if(gtop$args[0])
     GTop gtop
-    $pid[1]
+    $args[1]
 
     CODE:
-    glibtop_get_$if(&gtop->data.$if$pid[0]);
-    RETVAL = &gtop->data.$if;
+    RETVAL = (glibtop_$if *)safemalloc(sizeof(*RETVAL));
+    glibtop_get_$if(RETVAL$args[0]);
 
     OUTPUT:
     RETVAL
 
 EOF
 
-    print TEST <<EOF;
+    print TEST <<EOF unless $notunion{$if};
 
-my \$$if = \$gtop->$if$pid[3];
+my \$$if = \$gtop->$if$args[3];
 print "$if\\n";
 for (qw(@{ $interface{$if} })) {
-    printf "   %s => %d\\n", \$_, \$$if->\$_$pid[3];
+    printf "   %s => %d\\n", \$_, \$$if->\$_$args[3];
 }
 
 EOF
 
-    print POD "\n=head2 $class\n\n";
-    print POD "\n    my \$$if = \$gtop->$if$pid[2];\n\n";
-    print POD "=over 4\n\n";
+    unless ($notunion{$if}) {
+	print POD "\n=head2 $class\n\n";
+	print POD "\n    my \$$if = \$gtop->$if$args[2];\n\n";
+	print POD "=over 4\n\n";
+    }
 
     open FH, ">$if.boot" or die $!;
 
     print FH "static void boot_GTop_$if (void)\n{\n";
 
-    for my $field (@{ $interface{$if} }) {
-	print FH qq{   newGTopXS("$class\::$field", glibtop_$if, $field);\n};
-	print POD "\n=item $field\n\n";
-	print POD "    my \$$field = \$$if->$field;\n\n";
+    for my $entry (@{ $interface{$if} }) {
+	my($field, $type) = split ':', $entry;
+	my $method = join '::', $class, $field;
+	$type ||= 'u_int64_t';
+	print FH qq{   newGTopXS_$type("$method", glibtop_$if, $field);\n};
+
+	unless ($notunion{$if}) {
+	    print POD "\n=item $field\n\n";
+	    print POD "    my \$$field = \$$if->$field;\n\n";
+	}
     }
+    print FH qq{   newXS("$class\::DESTROY", XS_GTop_destroy, __FILE__);\n} 
+    unless $notunion{$if};
 
     print FH "\n}\n";
 
-    print POD "\n\n=back\n\n";
+    print POD "\n\n=back\n\n" unless $notunion{$if};
 }
 
 print BOOTXS "\n}\n";
@@ -135,4 +174,17 @@ WriteMakefile(
    clean   => {
        FILES => "@{[<*.boot>, <*.gtop>]}",
    },
+   'macro' => {
+	  CVSROOT => 'modperl.com:/local/cvs_repository',
+   },
 );
+
+sub MY::postamble { 
+    return <<'EOF'; 
+
+cvs_tag :
+	cvs -d $(CVSROOT) tag v$(VERSION_SYM) . 
+	@echo update GTop.pm VERSION now 
+EOF
+} 
+
