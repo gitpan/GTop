@@ -1,3 +1,4 @@
+#define PERL_NO_GET_CONTEXT /* we want efficiency */
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
@@ -18,25 +19,36 @@
 #define GTOP_TRACE(a)
 #endif
 
-#define trace_malloc(self) \
-GTOP_TRACE(fprintf(stderr, "malloc 0x%lx %d %ld:%s\n", (unsigned long)self, \
-		   __LINE__, (long)PL_curcop->cop_line, \
-		   SvPVX(GvSV(PL_curcop->cop_filegv))))
+#ifdef USE_ITHREADS
+#define cop_file PL_curcop->cop_file
+#else
+#define cop_file SvPVX(GvSV(PL_curcop->cop_filegv))
+#endif
 
-#define trace_free(self) \
-GTOP_TRACE(fprintf(stderr, "free 0x%lx %d %ld:%s\n", (unsigned long)self, \
-		   __LINE__, (long)PL_curcop->cop_line, \
-		   SvPVX(GvSV(PL_curcop->cop_filegv))))
+#define trace_malloc(self)                                  \
+    GTOP_TRACE(fprintf(stderr, "malloc 0x%lx %d %ld:%s\n",  \
+                       (unsigned long)self,                 \
+                       __LINE__, (long)PL_curcop->cop_line, \
+                       cop_file))
+
+#define trace_free(self)                                    \
+    GTOP_TRACE(fprintf(stderr, "free 0x%lx %d %ld:%s\n",    \
+                       (unsigned long)self,                 \
+                       __LINE__, (long)PL_curcop->cop_line, \
+                       cop_file))
+
 
 #define my_free(a) \
-trace_free(a); \
-safefree(a)
+    trace_free(a); \
+    safefree(a)
 
 #define my_malloc safemalloc
 
 typedef struct {
     unsigned old_method;
     int do_close;
+    char *host;
+    char *port;
 } PerlGTop;
 
 typedef PerlGTop * GTop;
@@ -59,6 +71,38 @@ newGTopXS(name, structure, field, int)
 
 #define newGTopXS_char(name, structure, field) \
 newGTopXSub(name, structure, field, char)
+
+static GTop my_gtop_new(pTHX_ char *host, char *port) 
+{
+    GTop RETVAL = (PerlGTop *)safemalloc(sizeof(PerlGTop));
+    trace_malloc(RETVAL);
+    RETVAL->old_method = glibtop_global_server->method;
+    RETVAL->do_close = 0;
+    RETVAL->host = NULL;
+    RETVAL->port = NULL;
+
+#if 0 && defined(USE_ITHREADS)
+    Perl_warn(aTHX_ "perl=0x%lx my_gtop_new() called",
+              (unsigned long)my_perl);
+#endif
+    
+    if (host && port) {
+	RETVAL->do_close = 1;
+	my_setenv("LIBGTOP_HOST", host);
+	my_setenv("LIBGTOP_PORT", port);
+        New(0, RETVAL->host, strlen(host)+1, char);
+        New(0, RETVAL->port, strlen(port)+1, char);
+        Copy(host, RETVAL->host, strlen(host)+1, char);
+        Copy(port, RETVAL->port, strlen(port)+1, char);
+	glibtop_global_server->method = GLIBTOP_METHOD_INET;
+	glibtop_init_r(&glibtop_global_server, 0, 0);
+    }
+    else {
+	glibtop_init();
+    }
+
+    return RETVAL;
+}
 
 XS(XS_GTop_field_u_int64_t) 
 { 
@@ -106,7 +150,7 @@ XS(XS_GTop_destroy)
     XSRETURN_EMPTY;
 }
 
-static void boot_GTop_constants(void)
+static void boot_GTop_constants(pTHX)
 {
     HV *stash = gv_stashpv("GTop", TRUE);
     (void)newCONSTSUB(stash, "MAP_PERM_READ", 
@@ -128,7 +172,7 @@ static char *netload_address_string(glibtop_netload *nl)
     return inet_ntoa(addr);
 }
  
-static SV *size_string(size_t size)
+static SV *size_string(pTHX_ size_t size)
 {
     SV *sv = newSVpv("    -", 5);
     if (size == (size_t)-1) {
@@ -153,6 +197,7 @@ static SV *size_string(size_t size)
     return sv;
 }
 
+
 #include "gtop.boot"
 #include "gtopxs.boot"
 
@@ -161,8 +206,8 @@ MODULE = GTop   PACKAGE = GTop
 PROTOTYPES: disable
 
 BOOT:
-    boot_GTop_interface();
-    boot_GTop_constants();
+    boot_GTop_interface(aTHX);
+    boot_GTop_constants(aTHX);
 
 INCLUDE: xs.gtop
 
@@ -172,48 +217,69 @@ END()
     CODE:
     glibtop_close();
 
+
 GTop
-new(CLASS, host=NULL, port="42800")
+_new(CLASS, host=NULL, port="42800")
     SV *CLASS
     char *host
     char *port
 
     CODE:
-    RETVAL = (PerlGTop *)safemalloc(sizeof(*RETVAL));
-    trace_malloc(RETVAL);
-    RETVAL->old_method = glibtop_global_server->method;
-    RETVAL->do_close = 0;
-
-    if (host && port) {
-	RETVAL->do_close = 1;
-	my_setenv("LIBGTOP_HOST", host);
-	my_setenv("LIBGTOP_PORT", port);
-	glibtop_global_server->method = GLIBTOP_METHOD_INET;
-	glibtop_init_r(&glibtop_global_server, 0, 0);
-    }
-    else {
-	glibtop_init();
-    }
+    RETVAL = my_gtop_new(aTHX_ host, port);
 
     OUTPUT:
     RETVAL
+    
+void
+_possess(ref)
+    SV *ref
+
+    PREINIT:
+    GTop self = (GTop)SvIV((SV*)SvRV(ref));
+
+    CODE:
+#ifdef EXAMPLE_CLONE_DEBUG
+    Perl_warn(aTHX_ "(self=0x%lx)->possess was : 0x%lx\n", ST(0),
+              (unsigned long)self);
+#endif
+    /* possess the guts of the original refect without changing its shell */
+    sv_setiv((SV*)SvRV(ref), (IV)my_gtop_new(aTHX_ self->host, self->port));
+#ifdef EXAMPLE_CLONE_DEBUG
+    Perl_warn(aTHX_ "(self=0x%lx)->possess got : 0x%lx\n", ST(0),
+              (GTop)SvIV((SV*)SvRV(ref)));
+#endif
 
 void
-DESTROY(self)
+_destroy(self)
     GTop self
 
     CODE:
+#if 0 && defined(USE_ITHREADS)
+    Perl_warn(aTHX_ "perl=0x%lx: (self=0x%lx)->DESTROY\n",
+              (unsigned long)my_perl, (unsigned long)self);
+#endif
     if (self->do_close) {
 	glibtop_close();
 	glibtop_global_server->flags &= ~_GLIBTOP_INIT_STATE_OPEN;
     }
     glibtop_global_server->method = self->old_method;
+
+    if (self->host) {
+        my_free(self->host);
+        my_free(self->port);
+    }
     my_free(self);
 
 SV *
 size_string(size)
     size_t size
 
+    CODE:
+    RETVAL = size_string(aTHX_ size);
+
+    OUTPUT:
+    RETVAL
+    
 void
 mountlist(gtop, all_fs)
     GTop gtop
