@@ -1,3 +1,11 @@
+0.06 - October 14, 1999
+
+added uptime and loadavg interfaces
+
+corrected generated test and docs for several methods (had too many args)
+
+added GTop::Netload::address_string method
+
 0.05 - October 4, 1999
 
 malloc/free glibtop_* objects instead of using a glibtop_union

@@ -20,6 +20,8 @@ my %interface = (
     'mountlist' => [qw(flags number total size)],
     'mountentry' => [],
     'fsusage' => [qw(flags blocks bfree bavail files ffree)],
+    'uptime' => [qw(flags)],
+    'loadavg' => [qw(flags nr_running nr_tasks last_pid)],
 );
 
 open TYPEMAP, ">typemap.gtop" or die $!;
@@ -113,7 +115,7 @@ EOF
 my \$$if = \$gtop->$if$args[3];
 print "$if\\n";
 for (qw(@{ $interface{$if} })) {
-    printf "   %s => %d\\n", \$_, \$$if->\$_$args[3];
+    printf "   %s => %d\\n", \$_, \$$if->\$_();
 }
 
 EOF

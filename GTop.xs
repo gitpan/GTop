@@ -36,7 +36,7 @@ XS(XS_GTop_field_u_int64_t)
     void *s = (void *)SvIV((SV*)SvRV(ST(0)));
     u_int64_t **ptr = (u_int64_t **)any_ptr_deref(s);
 
-    ST(0) = sv_2mortal(newSViv((IV)*ptr));
+    ST(0) = sv_2mortal(newSVnv((unsigned long)*ptr));
 
     XSRETURN(1); 
 }
@@ -78,6 +78,13 @@ static void boot_GTop_constants(void)
 		      newSViv(GLIBTOP_MAP_PERM_PRIVATE));
 }
 
+static char *netload_address_string(glibtop_netload *nl)
+{
+    struct in_addr addr;
+    addr.s_addr = nl->address;
+    return inet_ntoa(addr);
+}
+ 
 #include "gtop.boot"
 #include "gtopxs.boot"
 
@@ -275,6 +282,43 @@ MapEntry_filename(entries, idx=0)
     }
     else {
 	XSRETURN_UNDEF;
+    }
+
+    OUTPUT:
+    RETVAL
+
+MODULE = GTop   PACKAGE = GTop::Netload   PREFIX = netload_
+
+char *
+netload_address_string(self)
+    GTop::Netload self
+
+#define Uptime_uptime(self) self->uptime
+#define Uptime_idletime(self) self->idletime
+
+MODULE = GTop   PACKAGE = GTop::Uptime   PREFIX = Uptime_
+
+double
+Uptime_uptime(self)
+    GTop::Uptime self
+
+double
+Uptime_idletime(self)
+    GTop::Uptime self
+
+MODULE = GTop   PACKAGE = GTop::Loadavg
+
+AV *
+loadavg(self)
+    GTop::Loadavg self
+
+    PREINIT:
+    int i;
+    
+    CODE:
+    RETVAL = newAV();
+    for (i=0; i < 3; i++) {
+	av_push(RETVAL, newSVnv(self->loadavg[i]));
     }
 
     OUTPUT:
