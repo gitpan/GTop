@@ -41,6 +41,7 @@
 
 #include <sys/time.h>
 
+#include <netinet/tcp.h>
 #include <glibtop.h>
 #include <glibtop/open.h>
 #include <glibtop/close.h>
@@ -142,6 +143,15 @@ internet_init (void)
     if ((ls = socket (AF_INET, SOCK_STREAM, 0)) == -1) {
 	GTOP_S_LOG_IO_MESSAGE (LOG_ERR, "unable to create socket");
 	exit (1);
+    }
+
+    {
+	int optval = 1;
+	setsockopt(ls, SOL_SOCKET, SO_REUSEADDR,
+		   (const char *)&optval, sizeof(optval));
+	optval = 1;
+	setsockopt(ls, IPPROTO_TCP, TCP_NODELAY, 
+		   (const char *)&optval, sizeof(optval));
     }
 
     /* Bind the listen address to the socket. */

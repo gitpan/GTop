@@ -72,6 +72,7 @@ EOF
 my %constructors = map {$_,1} qw(mountlist proclist proc_map mountentry 
 				 proc_args map_entry);
 my %notunion = map {$_,1} qw(mountentry map_entry);
+use constant IS_SOLARIS => $^O eq 'solaris';
 
 for my $if (sort keys %interface) {
     local *FH;
@@ -112,6 +113,7 @@ $if(gtop$args[0])
     CODE:
     RETVAL = (glibtop_$if *)safemalloc(sizeof(*RETVAL));
     trace_malloc(RETVAL);
+    Zero(RETVAL, 1, glibtop_$if);
     glibtop_get_$if(RETVAL$args[0]);
 
     OUTPUT:
@@ -138,6 +140,29 @@ EOF
 
     open FH, ">$if.boot" or die $!;
 
+    if (IS_SOLARIS) {
+	for my $entry (@{ $interface{$if} }) {
+	    my $type = 'u_int64_t'; 
+	    if ($entry =~ s/:(\w+)$//) {
+		$type = $1;
+	    }
+	    my $field = $entry;
+	    my $xsname = "XS_glibtop_${if}_$field";
+	    print FH <<EOF;
+static XS($xsname)
+{
+    dXSARGS; 
+
+    glibtop_$if *s = (void *)SvIV((SV*)SvRV(ST(0)));
+
+    ST(0) = sv_2mortal(newSVnv((unsigned long)s->$field));
+
+    XSRETURN(1); 
+}
+EOF
+          }
+}
+
     print FH "static void boot_GTop_$if (void)\n{\n";
 
     for my $entry (@{ $interface{$if} }) {
@@ -147,8 +172,13 @@ EOF
 	}
 	my $field = $entry;
 	my $method = join '::', $class, $field;
-
-	print FH qq{   newGTopXS_$type("$method", glibtop_$if, $field);\n};
+	my $xsname = "XS_glibtop_${if}_$field";
+	if (IS_SOLARIS) {
+	    print FH qq{   newXS("$method", $xsname, __FILE__);\n};
+	}
+	else {
+	    print FH qq{   newGTopXS_$type("$method", glibtop_$if, $field);\n};
+	}
 
 	unless ($notunion{$if}) {
 	    print POD "\n=item $field\n\n";
@@ -192,7 +222,17 @@ chomp(my $ginc = `glib-config --cflags`);
 #needed for remote connection
 my $xlibs = "-L/usr/X11/lib -L/usr/X11R6/lib -lXau";
 
+my @insure = ();
+if (0) {
+    @insure = (
+       OPTIMIZE => '-g',
+       CC => 'insure gcc',
+       LD => 'insure gcc',
+    );
+}
+
 WriteMakefile(
+   @insure,
    NAME => 'GTop',
    VERSION_FROM => 'GTop.pm',
    INC => $GTOP_INCLUDE . $ginc,

@@ -6,6 +6,10 @@ static GList *ServerAllow = NULL;
  * Copyright (c) 1995-1999 The Apache Group.  All rights reserved.
  */
 
+#ifndef INADDR_NONE
+#define INADDR_NONE 0xffffffff
+#endif
+
 enum allowdeny_type {
     T_IP,
     T_HOST,

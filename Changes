@@ -1,3 +1,10 @@
+0.10 - January 31, 2000
+
+XS_GTop_field_##type didnt work under solaris, 
+Makefile.PL will now generate working code
+
+various GTop::Server fixups
+
 0.09 - November 28, 1999
 
 GTop->new now accepts option host,port args for talking to a

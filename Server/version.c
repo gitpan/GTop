@@ -1,4 +1,4 @@
-/* $Id: version.c,v 1.1 1999/11/28 03:23:04 dougm Exp $ */
+/* $Id: version.c,v 1.2 2000/02/01 01:13:21 dougm Exp $ */
 
 /* Copyright (C) 1998-99 Martin Baulig
    This file is part of LibGTop 1.0.
@@ -25,9 +25,18 @@
 #include <glibtop/error.h>
 #include <glibtop/version.h>
 
+#if 0
+#ifdef LIBGTOP_SERVER_VERSION
+# undef LIBGTOP_SERVER_VERSION
+# define LIBGTOP_SERVER_VERSION "50"
+# define LIBGTOP_VERSION "1.1.2"
+#endif
+#endif
+
 #ifndef LIBGTOP_VERSION
 #define LIBGTOP_VERSION "1.0.2"
 #endif
+
 #ifndef LIBGTOP_SERVER_VERSION
 #define LIBGTOP_SERVER_VERSION "5"
 #endif
