@@ -231,12 +231,14 @@ if (0) {
     );
 }
 
+my %config = get_glibtop_config();
+
 WriteMakefile(
    @insure,
    NAME => 'GTop',
    VERSION_FROM => 'GTop.pm',
-   INC => $GTOP_INCLUDE . $ginc,
-   LIBS => [$GTOP_LIB . "-lgtop -lgtop_sysdeps -lgtop_common -lglib $xlibs"],
+   INC => join(" ", $GTOP_INCLUDE, $ginc, $config{incs}),
+   LIBS => [join(" ", $GTOP_LIB, $config{libs})],
    TYPEMAPS => [qw(typemap.gtop typemap)],
    clean   => {
        FILES => "@{[<*.boot>, <*.gtop>]}",
@@ -255,3 +257,27 @@ cvs_tag :
 EOF
 } 
 
+# get libgtop CFLAGS/LIBS across 1.x-2.x versions
+sub get_glibtop_config {
+    my %c = ();
+
+    if (system('pkg-config --exists libgtop-2.0') == 0) {
+        # 2.x
+        chomp($c{incs} = qx|pkg-config --cflags libgtop-2.0|);
+        chomp($c{libs} = qx|pkg-config --libs   libgtop-2.0|);
+
+        # 2.0.0 bugfix
+        chomp(my $libdir = qx|pkg-config --variable=libdir libgtop-2.0|);
+        $c{libs} =~ s|\$\(libdir\)|$libdir|;
+    }
+    elsif (system('gnome-config --libs libgtop') == 0) {
+        chomp($c{incs} = qx|gnome-config --cflags libgtop|);
+        chomp($c{libs} = qx|gnome-config --libs   libgtop|);
+
+        # buggy ( < 1.0.9?) versions fixup
+        $c{incs} =~ s|^/|-I/|;
+        $c{libs} =~ s|^/|-L/|;
+    }
+
+    return %c;
+}

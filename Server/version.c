@@ -1,4 +1,4 @@
-/* $Id: version.c,v 1.2 2000/02/01 01:13:21 dougm Exp $ */
+/* $Id: version.c,v 1.1 2003/01/27 08:20:20 stas Exp $ */
 
 /* Copyright (C) 1998-99 Martin Baulig
    This file is part of LibGTop 1.0.

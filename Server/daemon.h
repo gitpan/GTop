@@ -1,4 +1,4 @@
-/* $Id: daemon.h,v 1.1 1999/11/28 03:23:03 dougm Exp $ */
+/* $Id: daemon.h,v 1.1 2003/01/27 08:20:20 stas Exp $ */
 
 /* Copyright (C) 1998-99 Martin Baulig
    This file is part of LibGTop 1.0.
