@@ -1,3 +1,12 @@
+0.09 - November 28, 1999
+
+GTop->new now accepts option host,port args for talking to a
+GTop::Server
+
+added new GTop::Server module (see examples/server)
+
+plugged a few potential memory leaks
+
 0.08 - November 16, 1999
 
 added proc_uid interface

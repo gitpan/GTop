@@ -1,3 +1,4 @@
+use 5.005;
 use ExtUtils::MakeMaker;
 
 use strict;
@@ -110,6 +111,7 @@ $if(gtop$args[0])
 
     CODE:
     RETVAL = (glibtop_$if *)safemalloc(sizeof(*RETVAL));
+    trace_malloc(RETVAL);
     glibtop_get_$if(RETVAL$args[0]);
 
     OUTPUT:
@@ -129,9 +131,9 @@ for (qw(@{ $interface{$if} })) {
 EOF
 
     unless ($notunion{$if}) {
-	print POD "\n=head2 $class\n\n";
+	print POD "\n=head2 $class\n";
 	print POD "\n    my \$$if = \$gtop->$if$args[2];\n\n";
-	print POD "=over 4\n\n";
+	print POD "=over 4\n";
     }
 
     open FH, ">$if.boot" or die $!;
@@ -150,7 +152,7 @@ EOF
 
 	unless ($notunion{$if}) {
 	    print POD "\n=item $field\n\n";
-	    print POD "    my \$$field = \$$if->$field;\n\n";
+	    print POD "    my \$$field = \$$if->$field;\n";
 	}
     }
     print FH qq{   newXS("$class\::DESTROY", XS_GTop_destroy, __FILE__);\n} 
@@ -158,7 +160,7 @@ EOF
 
     print FH "\n}\n";
 
-    print POD "\n\n=back\n\n" unless $notunion{$if};
+    print POD "\n=back\n" unless $notunion{$if};
 }
 
 print BOOTXS "\n}\n";
@@ -177,16 +179,24 @@ close XS;
 close POD;
 close TEST;
 
-my $GTOP_LIB = $ENV{GTOP_LIB} || ".";
-my $GTOP_INCLUDE = $ENV{GTOP_INCLUDE} || ".";
+my $GTOP_LIB = "";
+if (my $path = $ENV{GTOP_LIB}) {
+    $GTOP_LIB = "-L$path ";
+}
+my $GTOP_INCLUDE = "";
+if (my $path = $ENV{GTOP_INCLUDE}) {
+    $GTOP_INCLUDE = "-I$path ";
+}
 
 chomp(my $ginc = `glib-config --cflags`);
+#needed for remote connection
+my $xlibs = "-L/usr/X11/lib -L/usr/X11R6/lib -lXau";
 
 WriteMakefile(
    NAME => 'GTop',
    VERSION_FROM => 'GTop.pm',
-   INC => "-I$GTOP_INCLUDE $ginc",
-   LIBS => ["-L$GTOP_LIB -lgtop -lgtop_sysdeps -lgtop_common -lglib"],
+   INC => $GTOP_INCLUDE . $ginc,
+   LIBS => [$GTOP_LIB . "-lgtop -lgtop_sysdeps -lgtop_common -lglib $xlibs"],
    TYPEMAPS => [qw(typemap.gtop typemap)],
    clean   => {
        FILES => "@{[<*.boot>, <*.gtop>]}",

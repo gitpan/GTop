@@ -11,7 +11,34 @@
 #include <glibtop/union.h>
 #include <glibtop/sysdeps.h>
 
-typedef SV * GTop;
+#ifdef GTOP_DEBUG
+#define GTOP_TRACE(a) a
+#else
+#define GTOP_TRACE(a)
+#endif
+
+#define trace_malloc(self) \
+GTOP_TRACE(fprintf(stderr, "malloc 0x%lx %d %ld:%s\n", (unsigned long)self, \
+		   __LINE__, (long)PL_curcop->cop_line, \
+		   SvPVX(GvSV(PL_curcop->cop_filegv))))
+
+#define trace_free(self) \
+GTOP_TRACE(fprintf(stderr, "free 0x%lx %d %ld:%s\n", (unsigned long)self, \
+		   __LINE__, (long)PL_curcop->cop_line, \
+		   SvPVX(GvSV(PL_curcop->cop_filegv))))
+
+#define my_free(a) \
+trace_free(a); \
+safefree(a)
+
+#define my_malloc safemalloc
+
+typedef struct {
+    unsigned old_method;
+    int do_close;
+} PerlGTop;
+
+typedef PerlGTop * GTop;
 
 #define OffsetOf(structure, field) \
 (guint32)(&((structure *)NULL)->field)
@@ -73,7 +100,7 @@ XS(XS_GTop_destroy)
     dXSARGS; 
 
     void *s = (void *)SvIV((SV*)SvRV(ST(0)));
-    safefree(s);
+    my_free(s);
 
     XSRETURN_EMPTY;
 }
@@ -133,7 +160,6 @@ MODULE = GTop   PACKAGE = GTop
 PROTOTYPES: disable
 
 BOOT:
-    glibtop_init();
     boot_GTop_interface();
     boot_GTop_constants();
 
@@ -146,14 +172,42 @@ END()
     glibtop_close();
 
 GTop
-new(CLASS)
+new(CLASS, host=NULL, port="42800")
     SV *CLASS
+    char *host
+    char *port
 
     CODE:
-    RETVAL = CLASS;
+    RETVAL = (PerlGTop *)safemalloc(sizeof(*RETVAL));
+    trace_malloc(RETVAL);
+    RETVAL->old_method = glibtop_global_server->method;
+    RETVAL->do_close = 0;
+
+    if (host && port) {
+	RETVAL->do_close = 1;
+	my_setenv("LIBGTOP_HOST", host);
+	my_setenv("LIBGTOP_PORT", port);
+	glibtop_global_server->method = GLIBTOP_METHOD_INET;
+	glibtop_init_r(&glibtop_global_server, 0, 0);
+    }
+    else {
+	glibtop_init();
+    }
 
     OUTPUT:
     RETVAL
+
+void
+DESTROY(self)
+    GTop self
+
+    CODE:
+    if (self->do_close) {
+	glibtop_close();
+	glibtop_global_server->flags &= ~_GLIBTOP_INIT_STATE_OPEN;
+    }
+    glibtop_global_server->method = self->old_method;
+    my_free(self);
 
 SV *
 size_string(size)
@@ -171,6 +225,7 @@ mountlist(gtop, all_fs)
 
     PPCODE:
     RETVAL = (glibtop_mountlist *)safemalloc(sizeof(*RETVAL));
+    trace_malloc(RETVAL);
     entry = glibtop_get_mountlist(RETVAL, all_fs);
 
     svl = sv_newmortal();
@@ -181,6 +236,9 @@ mountlist(gtop, all_fs)
 	sve = sv_newmortal();
 	sv_setref_pv(sve, "GTop::Mountentry", (void*)entry);
 	XPUSHs(sve);
+    }
+    else {
+	glibtop_free(entry);
     }
 
 void
@@ -197,6 +255,7 @@ proclist(gtop, which=0, arg=0)
 
     PPCODE:
     RETVAL = (glibtop_proclist *)safemalloc(sizeof(*RETVAL));
+    trace_malloc(RETVAL);
     ptr = glibtop_get_proclist(RETVAL, which, arg);
 
     svl = sv_newmortal();
@@ -227,6 +286,7 @@ proc_args(gtop, pid, arg=0)
 
     PPCODE:
     RETVAL = (glibtop_proc_args *)safemalloc(sizeof(*RETVAL));
+    trace_malloc(RETVAL);
     pargs = glibtop_get_proc_args(RETVAL, pid, arg);
 
     svl = sv_newmortal();
@@ -264,6 +324,7 @@ proc_map(gtop, pid)
 
     PPCODE:
     RETVAL = (glibtop_proc_map *)safemalloc(sizeof(*RETVAL));
+    trace_malloc(RETVAL);
     entry = glibtop_get_proc_map(RETVAL, pid);
 
     svl = sv_newmortal();
@@ -274,6 +335,9 @@ proc_map(gtop, pid)
 	sve = sv_newmortal();
 	sv_setref_pv(sve, "GTop::MapEntry", (void*)entry);
 	XPUSHs(sve);
+    }
+    else {
+	glibtop_free(entry);
     }
 
 MODULE = GTop   PACKAGE = GTop::Mountentry   PREFIX = Mountlist_

@@ -4,7 +4,7 @@ use strict;
 use ExtUtils::testlib;
 use GTop ();
 
-my $gtop = GTop->new;
+my $gtop = GTop->new(@ARGV);
 
 my($proclist, $entries) = $gtop->proclist;
 my $number = $proclist->number;

@@ -6,7 +6,7 @@ use strict;
 use ExtUtils::testlib;
 use GTop ();
 
-my $gtop = GTop->new;
+my $gtop = GTop->new(@ARGV);
 
 my($mountlist, $entries) = $gtop->mountlist(1);
 my $number = $mountlist->number;
