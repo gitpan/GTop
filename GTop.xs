@@ -26,6 +26,9 @@ typedef SV * GTop;
 #define newGTopXS_u_int64_t(name, structure, field) \
 newGTopXS(name, structure, field, u_int64_t)
 
+#define newGTopXS_int(name, structure, field) \
+newGTopXS(name, structure, field, int)
+
 #define newGTopXS_char(name, structure, field) \
 newGTopXSub(name, structure, field, char)
 
@@ -37,6 +40,18 @@ XS(XS_GTop_field_u_int64_t)
     u_int64_t **ptr = (u_int64_t **)any_ptr_deref(s);
 
     ST(0) = sv_2mortal(newSVnv((unsigned long)*ptr));
+
+    XSRETURN(1); 
+}
+
+XS(XS_GTop_field_int) 
+{ 
+    dXSARGS; 
+
+    void *s = (void *)SvIV((SV*)SvRV(ST(0)));
+    int **ptr = (int **)any_ptr_deref(s);
+
+    ST(0) = sv_2mortal(newSViv((int)*ptr));
 
     XSRETURN(1); 
 }
@@ -85,6 +100,31 @@ static char *netload_address_string(glibtop_netload *nl)
     return inet_ntoa(addr);
 }
  
+static SV *size_string(size_t size)
+{
+    SV *sv = newSVpv("    -", 5);
+    if (size == (size_t)-1) {
+	/**/
+    }
+    else if (!size) {
+	sv_setpv(sv, "   0k");
+    }
+    else if (size < 1024) {
+	sv_setpv(sv, "   1k");
+    }
+    else if (size < 1048576) {
+	sv_setpvf(sv, "%4dk", (size + 512) / 1024);
+    }
+    else if (size < 103809024) {
+	sv_setpvf(sv, "%4.1fM", size / 1048576.0);
+    }
+    else {
+	sv_setpvf(sv, "%4dM", (size + 524288) / 1048576);
+    }
+
+    return sv;
+}
+
 #include "gtop.boot"
 #include "gtopxs.boot"
 
@@ -115,6 +155,10 @@ new(CLASS)
     OUTPUT:
     RETVAL
 
+SV *
+size_string(size)
+    size_t size
+
 void
 mountlist(gtop, all_fs)
     GTop gtop
@@ -138,6 +182,75 @@ mountlist(gtop, all_fs)
 	sv_setref_pv(sve, "GTop::Mountentry", (void*)entry);
 	XPUSHs(sve);
     }
+
+void
+proclist(gtop, which=0, arg=0)
+    GTop gtop
+    int which
+    int arg
+
+    PREINIT:
+    GTop__Proclist	RETVAL;
+    unsigned *ptr;
+    SV *svl;
+    AV *av;
+
+    PPCODE:
+    RETVAL = (glibtop_proclist *)safemalloc(sizeof(*RETVAL));
+    ptr = glibtop_get_proclist(RETVAL, which, arg);
+
+    svl = sv_newmortal();
+    sv_setref_pv(svl, "GTop::Proclist", (void*)RETVAL);
+    XPUSHs(svl);
+
+    if (GIMME_V == G_ARRAY) {
+	int i;
+	av = newAV();
+	av_extend(av, RETVAL->number);
+	for (i=0; i < RETVAL->number; i++) {
+	    av_push(av, newSViv(ptr[i]));
+	}
+	XPUSHs(sv_2mortal(newRV_noinc((SV*)av)));
+    }
+    glibtop_free(ptr);
+
+void
+proc_args(gtop, pid, arg=0)
+    GTop gtop
+    pid_t pid
+    int arg
+
+    PREINIT:
+    GTop__ProcArgs	RETVAL;
+    char *pargs;
+    SV *svl;
+
+    PPCODE:
+    RETVAL = (glibtop_proc_args *)safemalloc(sizeof(*RETVAL));
+    pargs = glibtop_get_proc_args(RETVAL, pid, arg);
+
+    svl = sv_newmortal();
+    sv_setref_pv(svl, "GTop::ProcArgs", (void*)RETVAL);
+    XPUSHs(svl);
+
+    if (GIMME_V == G_ARRAY) {
+	int len, total=0;
+	char *ptr = pargs;
+	AV *av = newAV();
+
+	while (ptr && (len = strlen(ptr))) {
+	    av_push(av, newSVpv(ptr,len));
+	    total += (len+1);
+	    if (total >= RETVAL->size) {
+		break;
+	    }
+	    ptr += (len+1);
+	}
+
+	XPUSHs(sv_2mortal(newRV_noinc((SV*)av)));
+    }
+
+    glibtop_free(pargs);
 
 void
 proc_map(gtop, pid)
@@ -323,3 +436,26 @@ loadavg(self)
 
     OUTPUT:
     RETVAL
+
+MODULE = GTop   PACKAGE = GTop::ProcState   PREFIX = proc_state_
+
+#define proc_state_cmd(state) state->cmd
+#define proc_state_state(state) state->state
+#define proc_state_uid(state) state->uid
+#define proc_state_gid(state) state->gid
+
+char *
+proc_state_cmd(state)
+    GTop::ProcState state
+
+char
+proc_state_state(state)
+    GTop::ProcState state
+
+int
+proc_state_uid(state)
+    GTop::ProcState state
+
+int
+proc_state_gid(state)
+    GTop::ProcState state

@@ -7,4 +7,6 @@ MANIFEST
 Changes
 examples/mountlist
 examples/procmap
+examples/proclist
+
 

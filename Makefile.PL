@@ -9,15 +9,21 @@ my %interface = (
     'proc_time' => [qw(flags start_time rtime utime stime cutime cstime
 		       timeout it_real_value frequency)],
     'proc_map' => [qw(flags number total size)],
+    'proc_args' => [qw(flags size)],
+    'proc_uid' => [qw(flags uid:int euid:int gid:int egid:int pid:int 
+		      ppid:int pgrp:int session:int tty:int
+		      tpgid:int priority:int nice:int)],
     'map_entry' => [],
     'swap' => [qw(flags total used free pagein pageout)],
     'proc_segment' => [qw(flags text_rss shlib_rss data_rss stack_rss 
 			  dirty_size start_code end_code start_stack)],
+    'proc_state' => [qw(flags)],
     'netload' => [qw(flags if_flags mtu subnet address packets_in 
 		     packets_out packets_total bytes_in bytes_out 
 		     bytes_total errors_in errors_out errors_total
 		     collisions)],
     'mountlist' => [qw(flags number total size)],
+    'proclist' => [qw(flags number total size)],
     'mountentry' => [],
     'fsusage' => [qw(flags blocks bfree bavail files ffree)],
     'uptime' => [qw(flags)],
@@ -62,7 +68,8 @@ Perl interface to libgtop:
 
 EOF
 
-my %constructors = map {$_,1} qw(mountlist proc_map mountentry map_entry);
+my %constructors = map {$_,1} qw(mountlist proclist proc_map mountentry 
+				 proc_args map_entry);
 my %notunion = map {$_,1} qw(mountentry map_entry);
 
 for my $if (sort keys %interface) {
@@ -115,6 +122,7 @@ EOF
 my \$$if = \$gtop->$if$args[3];
 print "$if\\n";
 for (qw(@{ $interface{$if} })) {
+    s/:\\w+\$//;
     printf "   %s => %d\\n", \$_, \$$if->\$_();
 }
 
@@ -131,9 +139,13 @@ EOF
     print FH "static void boot_GTop_$if (void)\n{\n";
 
     for my $entry (@{ $interface{$if} }) {
-	my($field, $type) = split ':', $entry;
+	my $type = 'u_int64_t'; 
+	if ($entry =~ s/:(\w+)$//) {
+	    $type = $1;
+	}
+	my $field = $entry;
 	my $method = join '::', $class, $field;
-	$type ||= 'u_int64_t';
+
 	print FH qq{   newGTopXS_$type("$method", glibtop_$if, $field);\n};
 
 	unless ($notunion{$if}) {
@@ -165,13 +177,16 @@ close XS;
 close POD;
 close TEST;
 
+my $GTOP_LIB = $ENV{GTOP_LIB} || ".";
+my $GTOP_INCLUDE = $ENV{GTOP_INCLUDE} || ".";
+
 chomp(my $ginc = `glib-config --cflags`);
 
 WriteMakefile(
    NAME => 'GTop',
    VERSION_FROM => 'GTop.pm',
-   INC => $ginc,
-   LIBS => ["-lgtop -lgtop_sysdeps -lgtop_common -lglib"],
+   INC => "-I$GTOP_INCLUDE $ginc",
+   LIBS => ["-L$GTOP_LIB -lgtop -lgtop_sysdeps -lgtop_common -lglib"],
    TYPEMAPS => [qw(typemap.gtop typemap)],
    clean   => {
        FILES => "@{[<*.boot>, <*.gtop>]}",
