@@ -1,4 +1,16 @@
-0.12 - 
+0.13 - Wed Apr 28 12:36:59 PDT 2004
+
+- Solaris doesn't have a typedef for u_int64_t, try to add one [Pete
+  Geenhuizen <pgeenhuizen@carolina.rr.com>]
+
+- Makefile.PL cleanups by Radoslaw Zielinski <radek@karnet.pl>.
+
+- adjust the build/source to support glibtop 2.5+. Thanks to Radoslaw
+  Zielinski <radek@karnet.pl> for the help and patches.
+
+- include the t/threads.t in the distro
+
+0.12 - Mon Dec 22 12:57:34 PST 2003
 
 prepare a basic test suite and threads test [Stas]
 

@@ -4,14 +4,27 @@
 #include "XSUB.h"
 #include "ppport.h"
 
+/* Solaris doesn't have u_int64_t type */
+#ifndef u_int64_t
+#define u_int64_t unsigned long long int
+#endif
+
 #include <glib.h>
 #include <glibtop.h>
 #include <glibtop/open.h>
 #include <glibtop/close.h>
+
+#ifndef GTOP_2_5_PLUS
 #include <glibtop/xmalloc.h>
+#endif
+
 #include <glibtop/parameter.h>
 #include <glibtop/union.h>
 #include <glibtop/sysdeps.h>
+
+#ifdef GTOP_2_5_PLUS
+#define glibtop_free g_free
+#endif
 
 #ifdef GTOP_DEBUG
 #define GTOP_TRACE(a) a

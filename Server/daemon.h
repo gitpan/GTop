@@ -1,4 +1,4 @@
-/* $Id: daemon.h,v 1.1 2003/01/27 08:20:20 stas Exp $ */
+/* $Id: daemon.h,v 1.2 2004/04/27 07:47:39 stas Exp $ */
 
 /* Copyright (C) 1998-99 Martin Baulig
    This file is part of LibGTop 1.0.
@@ -30,7 +30,9 @@
 
 #include <glibtop/open.h>
 #include <glibtop/union.h>
+#ifndef GTOP_2_5_PLUS
 #include <glibtop/xmalloc.h>
+#endif
 #include <glibtop/version.h>
 #include <glibtop/command.h>
 #include <glibtop/parameter.h>
@@ -42,6 +44,11 @@
 
 #include "access.h"
 #include "server_config.h"
+
+#ifdef GTOP_2_5_PLUS
+#define BEGIN_LIBGTOP_DECLS G_BEGIN_DECLS
+#define END_LIBGTOP_DECLS   G_END_DECLS
+#endif
 
 BEGIN_LIBGTOP_DECLS
 
