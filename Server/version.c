@@ -1,4 +1,4 @@
-/* $Id: version.c,v 1.1 2003/01/27 08:20:20 stas Exp $ */
+/* $Id: version.c 1020 2005-04-25 20:37:15Z stas $ */
 
 /* Copyright (C) 1998-99 Martin Baulig
    This file is part of LibGTop 1.0.
@@ -22,6 +22,7 @@
 */
 
 #include <glibtop.h>
+#include <glibtop/command.h>
 #include <glibtop/error.h>
 #include <glibtop/version.h>
 
