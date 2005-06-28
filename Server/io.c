@@ -1,4 +1,4 @@
-/* $Id: io.c,v 1.1 2003/01/27 08:20:20 stas Exp $ */
+/* $Id: io.c 790 2005-01-23 04:57:55Z stas $ */
 
 /* Copyright (C) 1998-99 Martin Baulig
    This file is part of LibGTop 1.0.
