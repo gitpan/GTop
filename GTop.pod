@@ -554,7 +554,10 @@ Perl interface to libgtop:
 
 =head1 AUTHOR
 
+Currently maintained by Malcolm J Harwood <mjh@cpan.org>.
+
+Previously maintained by Stas Bekman <stas@stason.org>.
+
 Doug MacEachern wrote the original version.
 
-Currently it's maintained by Stas Bekman <stas@stason.org>.
 

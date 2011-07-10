@@ -5,7 +5,7 @@ local $| = 1;
 
 use Test;
 
-plan tests => 3;
+plan tests => 7;
 
 ok 1;
 
@@ -146,5 +146,12 @@ for (qw(flags)) {
     printf "#   %s => %d\n", $x, $uptime->$x();
 }
 
-ok 1; # XXX: need to do some real testing
+# XXX: need to do some real testing
+
+# size_string testing
+ok GTop::size_string(1_024),       "   1k";
+ok GTop::size_string(1_924),       "   2k";
+ok GTop::size_string(8_192),       "   8k";
+ok GTop::size_string(1_148_576),   " 1.1M";
+ok GTop::size_string(133_809_024), " 128M";
 

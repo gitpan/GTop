@@ -6,7 +6,7 @@ use DynaLoader ();
 
 {
     no strict;
-    $VERSION = '0.16';
+    $VERSION = '0.17';
 
     *dl_load_flags = DynaLoader->can('dl_load_flags');
     do {
@@ -15,7 +15,7 @@ use DynaLoader ();
 }
 
 use constant DEBUG    => 0;
-use constant THREADED => eval { require threads };
+use constant THREADED => eval { my $ver = $threads::VERSION };
 
 require Scalar::Util if THREADED;
 
